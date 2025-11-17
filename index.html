@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Multiplayer f</title>
+<title>Multiplayer Platformer</title>
 <style>
   canvas { border:1px solid black; display:block; margin:0 auto; background:#a0d8f1; }
 </style>
@@ -10,91 +10,80 @@
 <body>
 <canvas id="gameCanvas" width="800" height="400"></canvas>
 <script>
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
-const playerId = crypto.randomUUID();
-const keys = {};
-let mouse = { x:0, y:0, clicked:false };
+const canvas=document.getElementById('gameCanvas');
+const ctx=canvas.getContext('2d');
+const playerId=crypto.randomUUID();
+let gameState={players:{},balls:[],platforms:[],turrets:[]};
+const keys={}, mouse={x:0,y:0,clicked:false};
 
-let gameState = { players:{}, balls:[], platforms:[], turrets:[] };
-
-// Connect to Worker WebSocket
-const ws = new WebSocket('wss://ancient-poetry-3a52.barmstrong910.workers.dev/ws'); // replace with your Worker URL
-ws.onopen = () => ws.send(JSON.stringify({ type:'join', id:playerId }));
-
-ws.onmessage = e => {
+// Connect to Worker
+const ws=new WebSocket('wss://ancient-poetry-3a52.barmstrong910.workers.dev/'); // replace
+ws.onopen=()=>ws.send(JSON.stringify({type:'join',id:playerId}));
+ws.onmessage=e=>{
   let msg;
-  if(typeof e.data==='string') msg = JSON.parse(e.data);
-  else msg = JSON.parse(new TextDecoder().decode(e.data));
-
-  if(msg.type==='state') gameState = msg.data;
+  if(typeof e.data==='string') msg=JSON.parse(e.data);
+  else msg=JSON.parse(new TextDecoder().decode(e.data));
+  if(msg.type==='state') gameState=msg.data;
 };
 
-// Track keys
-window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
-window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+// Keys
+window.addEventListener('keydown',e=>keys[e.key.toLowerCase()]=true);
+window.addEventListener('keyup',e=>keys[e.key.toLowerCase()]=false);
 
-// Track mouse
-canvas.addEventListener('mousemove', e => {
-  const rect = canvas.getBoundingClientRect();
-  mouse.x = e.clientX - rect.left;
-  mouse.y = e.clientY - rect.top;
+// Mouse
+canvas.addEventListener('mousemove',e=>{
+  const rect=canvas.getBoundingClientRect();
+  mouse.x=e.clientX-rect.left;
+  mouse.y=e.clientY-rect.top;
 });
-canvas.addEventListener('mousedown', e => mouse.clicked = true);
-canvas.addEventListener('mouseup', e => mouse.clicked = false);
+canvas.addEventListener('mousedown',()=>mouse.clicked=true);
+canvas.addEventListener('mouseup',()=>mouse.clicked=false);
 
-// Send input to server
+// Send input
 function sendInput(){
-  ws.send(JSON.stringify({ type:'input', id:playerId, input:{
-    left: keys.a || keys.arrowleft,
-    right: keys.d || keys.arrowright,
-    up: keys.w || keys.arrowup,
-    down: keys.s || keys.arrowdown,
-    mouseX: mouse.x,
-    mouseY: mouse.y,
-    mouseClick: mouse.clicked
+  ws.send(JSON.stringify({type:'input',id:playerId,input:{
+    left:keys.a||keys.arrowleft,
+    right:keys.d||keys.arrowright,
+    up:keys.w||keys.arrowup,
+    down:keys.s||keys.arrowdown,
+    mouseX:mouse.x,
+    mouseY:mouse.y,
+    mouseClick:mouse.clicked
   }}));
 }
 
-// Draw everything
+// Draw
 function draw(){
-  // Background
-  ctx.fillStyle = '#a0d8f1';
+  ctx.fillStyle='#a0d8f1';
   ctx.fillRect(0,0,canvas.width,canvas.height);
 
-  // Platforms
-  ctx.fillStyle = '#654321';
-  for(const p of gameState.platforms || []) ctx.fillRect(p.x,p.y,p.width,p.height);
+  const platforms=gameState.platforms||[];
+  if(platforms.length===0) return;
 
-  // Players
-  for(const id in gameState.players || {}){
-    const p = gameState.players[id];
-    ctx.fillStyle = id===playerId?'red':'green';
+  ctx.fillStyle='#654321';
+  for(const p of platforms) ctx.fillRect(p.x,p.y,p.width,p.height);
+
+  for(const id in gameState.players||{}){
+    const p=gameState.players[id];
+    ctx.fillStyle=id===playerId?'red':'green';
     ctx.fillRect(p.x,p.y,p.width,p.height);
   }
 
-  // Balls
-  for(const b of gameState.balls || []){
-    ctx.fillStyle = b.type==='split'?'orange':b.type==='splittingsquared'?'purple':'blue';
+  for(const b of gameState.balls||[]){
+    ctx.fillStyle=b.type==='split'?'orange':b.type==='splittingsquared'?'purple':'blue';
     ctx.beginPath();
     ctx.arc(b.x,b.y,b.radius,0,Math.PI*2);
     ctx.fill();
   }
 
-  // Turrets
-  for(const t of gameState.turrets || []){
-    ctx.fillStyle = t.type==='split'?'darkorange':t.type==='splittingsquared'?'purple':'darkblue';
-    ctx.fillRect(t.x-10, t.y-5, 20, 10);
+  for(const t of gameState.turrets||[]){
+    ctx.fillStyle=t.type==='split'?'darkorange':t.type==='splittingsquared'?'purple':'darkblue';
+    ctx.fillRect(t.x-10,t.y-5,20,10);
   }
 }
 
 // Game loop
-function loop(){
-  sendInput();
-  draw();
-  requestAnimationFrame(loop);
-}
-
+function loop(){ sendInput(); draw(); requestAnimationFrame(loop); }
 loop();
 </script>
 </body>

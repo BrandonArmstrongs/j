@@ -108,7 +108,7 @@ function update() {
   } else player.swing = 0;
 }
 
-// Draw stickman
+// Draw stickman with both arms and legs
 function drawPlayer() {
   ctx.strokeStyle = player.color;
   ctx.lineWidth = 2;
@@ -130,23 +130,33 @@ function drawPlayer() {
   // Arms
   ctx.beginPath();
   const armSwing = Math.sin(player.swing) * 10;
+  // Left arm
   ctx.moveTo(cx, cy);
-  if (!player.sliding) {
-    ctx.lineTo(cx + armSwing, cy + 10);
-  } else {
-    ctx.lineTo(cx + 15 * Math.sign(player.vx || 1), cy + 8);
-  }
+  if (!player.sliding) ctx.lineTo(cx - armSwing, cy + 10);
+  else ctx.lineTo(cx - 15 * Math.sign(player.vx || 1), cy + 8);
+  ctx.stroke();
+
+  ctx.beginPath();
+  // Right arm
+  ctx.moveTo(cx, cy);
+  if (!player.sliding) ctx.lineTo(cx + armSwing, cy + 10);
+  else ctx.lineTo(cx + 15 * Math.sign(player.vx || 1), cy + 8);
   ctx.stroke();
 
   // Legs
-  ctx.beginPath();
   const legSwing = Math.sin(player.swing + Math.PI / 2) * 10;
+  // Left leg
+  ctx.beginPath();
   ctx.moveTo(cx, player.y + player.height);
-  if (!player.sliding) {
-    ctx.lineTo(cx + legSwing, player.y + player.height + 15);
-  } else {
-    ctx.lineTo(cx + 20 * Math.sign(player.vx || 1), player.y + player.height + 5);
-  }
+  if (!player.sliding) ctx.lineTo(cx - legSwing, player.y + player.height + 15);
+  else ctx.lineTo(cx - 20 * Math.sign(player.vx || 1), player.y + player.height + 5);
+  ctx.stroke();
+
+  // Right leg
+  ctx.beginPath();
+  ctx.moveTo(cx, player.y + player.height);
+  if (!player.sliding) ctx.lineTo(cx + legSwing, player.y + player.height + 15);
+  else ctx.lineTo(cx + 20 * Math.sign(player.vx || 1), player.y + player.height + 5);
   ctx.stroke();
 }
 

@@ -167,8 +167,6 @@ function update() {
     ball.x += ball.vx;
     ball.y += ball.vy;
 
-    let collided = false;
-
     // Platform collisions (all sides)
     for (const plat of platforms) {
       const bx = plat.x;
@@ -199,11 +197,10 @@ function update() {
           ball.vx *= -bounceFactor;
         }
 
-        // Apply friction on collision with platform
+        // Apply friction
         ball.vx *= ballFriction;
         if (Math.abs(ball.vx) < 0.05) ball.vx = 0;
-
-        collided = true;
+        if (Math.abs(ball.vy) < 0.05) ball.vy = 0;
       }
     }
 
@@ -213,19 +210,21 @@ function update() {
       ball.vy *= -bounceFactor;
       ball.vx *= ballFriction;
       if (Math.abs(ball.vx) < 0.05) ball.vx = 0;
-      if (Math.abs(ball.vy) < 0.1) ball.vy = 0;
-      collided = true;
+      if (Math.abs(ball.vy) < 0.05) ball.vy = 0;
     }
 
     // Left/Right walls
-    if (ball.x - ballRadius < 0) { ball.x = ballRadius; ball.vx *= -bounceFactor; collided = true; }
-    if (ball.x + ballRadius > canvas.width) { ball.x = canvas.width - ballRadius; ball.vx *= -bounceFactor; collided = true; }
+    if (ball.x - ballRadius < 0) { ball.x = ballRadius; ball.vx *= -bounceFactor; }
+    if (ball.x + ballRadius > canvas.width) { ball.x = canvas.width - ballRadius; ball.vx *= -bounceFactor; }
 
-    // Fade out if ball has stopped
-    if (!collided && Math.abs(ball.vx) < 0.05 && Math.abs(ball.vy) < 0.05) {
+    // Fade out if almost stopped
+    if (Math.abs(ball.vx) < 0.05 && Math.abs(ball.vy) < 0.05) {
       ball.fadeTimer += 1/60; // assuming 60fps
-      ball.alpha = Math.max(0, 1 - ball.fadeTimer / 3); // fade out over 3 seconds
+      ball.alpha = Math.max(0, 1 - ball.fadeTimer / 3);
       if (ball.alpha === 0) balls.splice(i, 1);
+    } else {
+      ball.fadeTimer = 0;
+      ball.alpha = 1;
     }
   }
 }

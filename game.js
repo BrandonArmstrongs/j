@@ -32,6 +32,8 @@ const slideFriction = 0.05;
 let balls = [];
 const ballSpeed = 8;
 const ballRadius = 5;
+const ballGravity = 0.2;  // less gravity for floating effect
+const bounceFactor = 0.7; // lose 30% speed on bounce
 
 // Controls
 const keys = {};
@@ -99,7 +101,7 @@ function update() {
     if (Math.abs(player.vx) < 0.2) player.sliding = false;
   }
 
-  // Gravity
+  // Apply gravity
   player.vy += gravity;
   player.x += player.vx;
   player.y += player.vy;
@@ -136,15 +138,37 @@ function update() {
 
   // Update balls
   for (let ball of balls) {
-    ball.vy += gravity;
+    ball.vy += ballGravity;
     ball.x += ball.vx;
     ball.y += ball.vy;
 
     // Ground collision
     if (ball.y + ballRadius > canvas.height) {
       ball.y = canvas.height - ballRadius;
-      ball.vy = 0;
-      ball.vx = 0;
+      ball.vy *= -bounceFactor;
+      if (Math.abs(ball.vy) < 0.5) ball.vy = 0; // stop small bounces
+    }
+
+    // Platform collisions
+    for (const plat of platforms) {
+      if (
+        ball.x + ballRadius > plat.x &&
+        ball.x - ballRadius < plat.x + plat.width &&
+        ball.y + ballRadius > plat.y &&
+        ball.y - ballRadius < plat.y + plat.height &&
+        ball.vy > 0
+      ) {
+        ball.y = plat.y - ballRadius;
+        ball.vy *= -bounceFactor;
+        if (Math.abs(ball.vy) < 0.5) ball.vy = 0;
+      }
+    }
+
+    // Left/Right walls
+    if (ball.x - ballRadius < 0 || ball.x + ballRadius > canvas.width) {
+      ball.vx *= -bounceFactor;
+      if (ball.x - ballRadius < 0) ball.x = ballRadius;
+      if (ball.x + ballRadius > canvas.width) ball.x = canvas.width - ballRadius;
     }
   }
 }

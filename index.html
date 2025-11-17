@@ -1,12 +1,81 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Offline Platformer</title>
-  <link rel="stylesheet" href="style.css">
+<meta charset="UTF-8">
+<title>Multiplayer Platformer</title>
+<style>
+  canvas { border:1px solid black; display:block; margin:0 auto; }
+</style>
 </head>
 <body>
-  <canvas id="gameCanvas" width="800" height="400"></canvas>
-  <script src="game.js"></script>
+<canvas id="gameCanvas" width="800" height="400"></canvas>
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const playerId = crypto.randomUUID(); // unique player ID
+const ws = new WebSocket('wss://YOUR_WORKER_SUBDOMAIN.workers.dev/ws'); // replace with your Worker URL
+
+let gameState = { players: {}, balls: [], platforms: [], turrets: [] };
+const keys = {};
+
+ws.onopen = () => {
+  ws.send(JSON.stringify({ type:'join', id:playerId }));
+};
+
+ws.onmessage = e => {
+  const msg = JSON.parse(e.data);
+  if(msg.type==='state') gameState = msg.data;
+};
+
+// Track key input
+window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
+window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+
+function sendInput() {
+  ws.send(JSON.stringify({ type:'input', id:playerId, input:{
+    left: keys.a || keys.arrowleft,
+    right: keys.d || keys.arrowright,
+    up: keys.w || keys.arrowup,
+    down: keys.s || keys.arrowdown
+  }}));
+}
+
+function draw() {
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  // Draw platforms
+  ctx.fillStyle = '#654321';
+  for(const p of gameState.platforms) ctx.fillRect(p.x,p.y,p.width,p.height);
+
+  // Draw players
+  for(const id in gameState.players){
+    const p = gameState.players[id];
+    ctx.fillStyle = id===playerId?'red':'green';
+    ctx.fillRect(p.x,p.y,p.width,p.height);
+  }
+
+  // Draw balls
+  for(const b of gameState.balls){
+    ctx.fillStyle = b.type==='split'?'orange':b.type==='splittingsquared'?'purple':'blue';
+    ctx.beginPath();
+    ctx.arc(b.x,b.y,b.radius,0,Math.PI*2);
+    ctx.fill();
+  }
+
+  // Draw turrets
+  for(const t of gameState.turrets){
+    ctx.fillStyle = t.type==='split'?'darkorange':t.type==='splittingsquared'?'purple':'darkblue';
+    ctx.fillRect(t.x-10, t.y-5, 20, 10);
+  }
+}
+
+function loop() {
+  sendInput();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+loop();
+</script>
 </body>
 </html>

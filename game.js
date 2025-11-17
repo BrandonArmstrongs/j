@@ -2,40 +2,83 @@ const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
 // Player
-let player = { x: 50, y: 300, width: 30, height: 30, color: 'red', vx: 0, vy: 0, onGround: false };
+let player = {
+  x: 50,
+  y: 300,
+  width: 30,
+  height: 30,
+  color: 'red',
+  vx: 0,
+  vy: 0,
+  onGround: false,
+  sliding: false
+};
 
-// Platforms
+// Platforms: some static, some horizontal moving
 const platforms = [
-  { x: 0, y: 380, width: 800, height: 20 },  // ground
-  { x: 150, y: 300, width: 100, height: 10 },
-  { x: 400, y: 250, width: 120, height: 10 },
-  { x: 600, y: 180, width: 80, height: 10 },
+  { x: 0, y: 380, width: 800, height: 20, vx: 0 },           // ground
+  { x: 150, y: 300, width: 100, height: 10, vx: 1, minX: 150, maxX: 300 },
+  { x: 400, y: 250, width: 120, height: 10, vx: 0 },         // static
+  { x: 600, y: 180, width: 80, height: 10, vx: 2, minX: 600, maxX: 700 }
 ];
 
 // Physics
 const gravity = 0.5;
 const speed = 3;
 const jumpPower = -10;
+const slideFriction = 0.1;
 
 // Controls
 const keys = {};
-window.addEventListener('keydown', e => keys[e.key] = true);
-window.addEventListener('keyup', e => keys[e.key] = false);
+window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
+window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
 
-// Game loop
+// Game update function
 function update() {
-  // Horizontal movement
-  player.vx = 0;
-  if (keys['ArrowLeft']) player.vx = -speed;
-  if (keys['ArrowRight']) player.vx = speed;
-
-  // Jump
-  if (keys['ArrowUp'] && player.onGround) {
-    player.vy = jumpPower;
-    player.onGround = false;
+  // Move platforms
+  for (const plat of platforms) {
+    if (plat.vx) {
+      plat.x += plat.vx;
+      if (plat.x < plat.minX || plat.x + plat.width > plat.maxX) plat.vx *= -1;
+    }
   }
 
-  // Gravity
+  // Check if crouching
+  const crouching = keys['arrowdown'] || keys['s'];
+
+  // Horizontal movement
+  if (!player.sliding) {
+    player.vx = 0;
+    if (keys['arrowleft'] || keys['a']) player.vx = -speed;
+    if (keys['arrowright'] || keys['d']) player.vx = speed;
+
+    // Start sliding if crouching and moving
+    if (crouching && player.vx !== 0) player.sliding = true;
+  }
+
+  // Jump
+  if ((keys['arrowup'] || keys['w']) && player.onGround) {
+    player.vy = jumpPower;
+    player.onGround = false;
+    player.sliding = false; // stop sliding when jumping
+  }
+
+  // Crouch visual
+  if (crouching) {
+    player.height = 15;
+    player.color = 'darkred';
+  } else {
+    player.height = 30;
+    player.color = 'red';
+  }
+
+  // Apply sliding friction
+  if (player.sliding) {
+    player.vx *= (1 - slideFriction);
+    if (Math.abs(player.vx) < 0.1) player.sliding = false;
+  }
+
+  // Apply gravity
   player.vy += gravity;
   player.x += player.vx;
   player.y += player.vy;
@@ -52,6 +95,9 @@ function update() {
       player.y = plat.y - player.height;
       player.vy = 0;
       player.onGround = true;
+
+      // Move player with platform
+      if (plat.vx) player.x += plat.vx;
     }
   }
 
@@ -60,11 +106,13 @@ function update() {
     player.y = canvas.height - player.height;
     player.vy = 0;
     player.onGround = true;
+    player.sliding = false;
   }
   if (player.x < 0) player.x = 0;
   if (player.x + player.width > canvas.width) player.x = canvas.width - player.width;
 }
 
+// Draw function
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -79,6 +127,7 @@ function draw() {
   ctx.fillRect(player.x, player.y, player.width, player.height);
 }
 
+// Game loop
 function loop() {
   update();
   draw();

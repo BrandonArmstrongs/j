@@ -1,66 +1,80 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-<meta charset="UTF-8">
 <title>Multiplayer Mouse Tracker</title>
 <style>
-  canvas { border:1px solid black; display:block; margin:0 auto; background:#f0f0f0; }
+  body { margin:0; overflow:hidden; background:black; }
+  canvas { display:block; }
 </style>
 </head>
 <body>
-<canvas id="canvas" width="800" height="400"></canvas>
+
+<canvas id="c"></canvas>
+
 <script>
-const canvas = document.getElementById('canvas');
-const ctx = canvas.getContext('2d');
-const playerId = crypto.randomUUID();
+const canvas = document.getElementById("c");
+const ctx = canvas.getContext("2d");
+canvas.width = innerWidth;
+canvas.height = innerHeight;
 
-let gameState = { players: {} };
+let myId = null;
+let players = {};
 
-// Connect to Worker
-const ws = new WebSocket('wss://https://ancient-poetry-3a52.barmstrong910.workers.dev/ws'); // replace
-ws.onopen = () => ws.send(JSON.stringify({ type:'join', id:playerId }));
+const ws = new WebSocket("wss://" + location.host + "/ws");
 
+// Handle messages
 ws.onmessage = e => {
   let msg;
-  if(typeof e.data === 'string') msg = JSON.parse(e.data);
-  else msg = JSON.parse(new TextDecoder().decode(e.data));
 
-  if(msg.type === 'state') gameState = msg.data;
+  if (typeof e.data === "string") {
+    msg = JSON.parse(e.data);
+  } else {
+    msg = JSON.parse(new TextDecoder().decode(e.data));
+  }
+
+  if (msg.type === "init") {
+    myId = msg.yourId;
+  }
+
+  if (msg.type === "state") {
+    players = msg.data;
+  }
 };
 
-// Track mouse locally
-const mouse = { x: 0, y: 0 };
-canvas.addEventListener('mousemove', e => {
-  const rect = canvas.getBoundingClientRect();
-  mouse.x = e.clientX - rect.left;
-  mouse.y = e.clientY - rect.top;
+// Send mouse position
+document.addEventListener("mousemove", e => {
+  ws.send(JSON.stringify({
+    type: "input",
+    input: { mouseX: e.clientX, mouseY: e.clientY }
+  }));
 });
 
-// Send mouse position to server
-function sendMouse(){
-  ws.send(JSON.stringify({ type:'input', id:playerId, input:{ mouseX: mouse.x, mouseY: mouse.y } }));
-}
+// Draw loop
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-// Draw all players' cursors
-function draw(){
-  ctx.fillStyle = '#f0f0f0';
-  ctx.fillRect(0,0,canvas.width,canvas.height);
+  for (const id in players) {
+    const p = players[id];
 
-  for(const id in gameState.players){
-    const p = gameState.players[id];
-    ctx.fillStyle = (id===playerId) ? 'red' : 'blue';
+    // Self = red, others = blue
+    ctx.fillStyle = (id === myId) ? "red" : "cyan";
     ctx.beginPath();
-    ctx.arc(p.input?.mouseX || 0, p.input?.mouseY || 0, 8, 0, Math.PI*2);
+    ctx.arc(p.input.mouseX, p.input.mouseY, 10, 0, Math.PI * 2);
     ctx.fill();
+
+    // Label
+    ctx.fillStyle = "white";
+    ctx.fillText(id.substring(0, 6), p.input.mouseX + 12, p.input.mouseY + 4);
   }
+
+  requestAnimationFrame(draw);
 }
 
-// Loop
-function loop(){
-  sendMouse();
-  draw();
-  requestAnimationFrame(loop);
-}
+draw();
+</script>
+
+</body>
+</html>
 
 loop();
 </script>

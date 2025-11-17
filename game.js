@@ -12,7 +12,7 @@ let player = {
   vy: 0,
   onGround: false,
   sliding: false,
-  frame: 0 // for animation
+  swing: 0 // swing angle for running animation
 };
 
 // Platforms
@@ -27,14 +27,14 @@ const platforms = [
 const gravity = 0.5;
 const speed = 3;
 const jumpPower = -10;
-const slideFriction = 0.05; // slower friction = longer slide
+const slideFriction = 0.05;
 
 // Controls
 const keys = {};
 window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
 window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
 
-// Game update function
+// Update loop
 function update() {
   // Move platforms
   for (const plat of platforms) {
@@ -52,10 +52,9 @@ function update() {
     if (keys['arrowleft'] || keys['a']) player.vx = -speed;
     if (keys['arrowright'] || keys['d']) player.vx = speed;
 
-    // Start sliding if crouching and moving
     if (crouching && Math.abs(player.vx) > 0) {
       player.sliding = true;
-      player.vx *= 1.5; // boost initial slide speed
+      player.vx *= 1.5;
     }
   }
 
@@ -66,13 +65,13 @@ function update() {
     player.sliding = false;
   }
 
-  // Apply sliding friction
+  // Sliding friction
   if (player.sliding) {
     player.vx *= (1 - slideFriction);
     if (Math.abs(player.vx) < 0.2) player.sliding = false;
   }
 
-  // Apply gravity
+  // Gravity
   player.vy += gravity;
   player.x += player.vx;
   player.y += player.vy;
@@ -89,8 +88,6 @@ function update() {
       player.y = plat.y - player.height;
       player.vy = 0;
       player.onGround = true;
-
-      // Move player with moving platform
       if (plat.vx) player.x += plat.vx;
     }
   }
@@ -105,14 +102,55 @@ function update() {
   if (player.x < 0) player.x = 0;
   if (player.x + player.width > canvas.width) player.x = canvas.width - player.width;
 
-  // Animate frame for stickman legs
-  if (Math.abs(player.vx) > 0 && player.onGround && !player.sliding) {
-    player.frame += 0.2;
-    if (player.frame > 2) player.frame = 0;
-  } else player.frame = 0;
+  // Update swing for smooth running animation
+  if (player.onGround && !player.sliding && Math.abs(player.vx) > 0) {
+    player.swing += 0.2;
+  } else player.swing = 0;
 }
 
-// Draw function
+// Draw stickman
+function drawPlayer() {
+  ctx.strokeStyle = player.color;
+  ctx.lineWidth = 2;
+
+  const cx = player.x + player.width / 2;
+  const cy = player.y + player.height / 2;
+
+  // Body
+  ctx.beginPath();
+  ctx.moveTo(cx, player.y + player.height);
+  ctx.lineTo(cx, cy);
+  ctx.stroke();
+
+  // Head
+  ctx.beginPath();
+  ctx.arc(cx, cy - 10, 6, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Arms
+  ctx.beginPath();
+  const armSwing = Math.sin(player.swing) * 10;
+  ctx.moveTo(cx, cy);
+  if (!player.sliding) {
+    ctx.lineTo(cx + armSwing, cy + 10);
+  } else {
+    ctx.lineTo(cx + 15 * Math.sign(player.vx || 1), cy + 8);
+  }
+  ctx.stroke();
+
+  // Legs
+  ctx.beginPath();
+  const legSwing = Math.sin(player.swing + Math.PI / 2) * 10;
+  ctx.moveTo(cx, player.y + player.height);
+  if (!player.sliding) {
+    ctx.lineTo(cx + legSwing, player.y + player.height + 15);
+  } else {
+    ctx.lineTo(cx + 20 * Math.sign(player.vx || 1), player.y + player.height + 5);
+  }
+  ctx.stroke();
+}
+
+// Draw loop
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -122,42 +160,7 @@ function draw() {
     ctx.fillRect(plat.x, plat.y, plat.width, plat.height);
   }
 
-  // Draw stickman
-  ctx.strokeStyle = player.color;
-  ctx.lineWidth = 2;
-
-  // Body
-  ctx.beginPath();
-  ctx.moveTo(player.x + player.width/2, player.y + player.height); // feet
-  ctx.lineTo(player.x + player.width/2, player.y + (player.height/2)); // body
-  ctx.stroke();
-
-  // Head
-  ctx.beginPath();
-  ctx.arc(player.x + player.width/2, player.y + (player.height/2) - 10, 5, 0, Math.PI*2);
-  ctx.stroke();
-
-  // Arms
-  ctx.beginPath();
-  ctx.moveTo(player.x + player.width/2, player.y + player.height/2);
-  if (!player.sliding) {
-    // swing arms
-    ctx.lineTo(player.x + player.width/2 + (player.frame === 0 ? -10 : 10), player.y + player.height/2 + 10);
-  } else {
-    ctx.lineTo(player.x + player.width/2 + 15 * Math.sign(player.vx), player.y + player.height/2 + 5);
-  }
-  ctx.stroke();
-
-  // Legs
-  ctx.beginPath();
-  ctx.moveTo(player.x + player.width/2, player.y + player.height);
-  if (!player.sliding) {
-    ctx.lineTo(player.x + player.width/2 + (player.frame === 0 ? -5 : 5), player.y + player.height + 15);
-  } else {
-    // sliding leg
-    ctx.lineTo(player.x + player.width/2 + 20 * Math.sign(player.vx), player.y + player.height + 5);
-  }
-  ctx.stroke();
+  drawPlayer();
 }
 
 // Game loop

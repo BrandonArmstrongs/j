@@ -107,19 +107,44 @@ function update() {
   player.x += player.vx;
   player.y += player.vy;
 
-  // Platform collision
+  // Player-platform collisions (full sides)
   player.onGround = false;
   for (const plat of platforms) {
-    if (
-      player.x < plat.x + plat.width &&
-      player.x + player.width > plat.x &&
-      player.y + player.height > plat.y &&
-      player.y + player.height - player.vy <= plat.y
-    ) {
-      player.y = plat.y - player.height;
-      player.vy = 0;
-      player.onGround = true;
-      if (plat.vx) player.x += plat.vx;
+    const px = player.x;
+    const py = player.y;
+    const pw = player.width;
+    const ph = player.height;
+    const bx = plat.x;
+    const by = plat.y;
+    const bw = plat.width;
+    const bh = plat.height;
+
+    if (px < bx + bw && px + pw > bx && py < by + bh && py + ph > by) {
+      const overlapX1 = px + pw - bx; // left side
+      const overlapX2 = bx + bw - px; // right side
+      const overlapY1 = py + ph - by; // top side
+      const overlapY2 = by + bh - py; // bottom side
+      const minOverlap = Math.min(overlapX1, overlapX2, overlapY1, overlapY2);
+
+      if (minOverlap === overlapY1) {
+        // Landed on top
+        player.y = by - ph;
+        player.vy = 0;
+        player.onGround = true;
+        if (plat.vx) player.x += plat.vx;
+      } else if (minOverlap === overlapY2) {
+        // Hit bottom
+        player.y = by + bh;
+        player.vy = 0;
+      } else if (minOverlap === overlapX1) {
+        // Hit left side
+        player.x = bx - pw;
+        player.vx = 0;
+      } else if (minOverlap === overlapX2) {
+        // Hit right side
+        player.x = bx + bw;
+        player.vx = 0;
+      }
     }
   }
 

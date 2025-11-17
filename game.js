@@ -1,11 +1,8 @@
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
-const socketUrl = 'wss://YOUR_WORKER_URL'; // WebSocket endpoint
-
 // Player
 let player = { x: 50, y: 300, width: 30, height: 30, color: 'red', vx: 0, vy: 0, onGround: false };
-let players = {}; // Other players
 
 // Platforms
 const platforms = [
@@ -25,12 +22,6 @@ const keys = {};
 window.addEventListener('keydown', e => keys[e.key] = true);
 window.addEventListener('keyup', e => keys[e.key] = false);
 
-// Connect to server
-const ws = new WebSocket(socketUrl);
-ws.onmessage = event => {
-  players = JSON.parse(event.data);
-};
-
 // Game loop
 function update() {
   // Horizontal movement
@@ -44,7 +35,7 @@ function update() {
     player.onGround = false;
   }
 
-  // Apply gravity
+  // Gravity
   player.vy += gravity;
   player.x += player.vx;
   player.y += player.vy;
@@ -52,31 +43,28 @@ function update() {
   // Platform collision
   player.onGround = false;
   for (const plat of platforms) {
-    if (player.x < plat.x + plat.width &&
-        player.x + player.width > plat.x &&
-        player.y + player.height > plat.y &&
-        player.y + player.height - player.vy <= plat.y) {
+    if (
+      player.x < plat.x + plat.width &&
+      player.x + player.width > plat.x &&
+      player.y + player.height > plat.y &&
+      player.y + player.height - player.vy <= plat.y
+    ) {
       player.y = plat.y - player.height;
       player.vy = 0;
       player.onGround = true;
     }
   }
 
-  // Canvas bounds
+  // Canvas boundaries
   if (player.y + player.height > canvas.height) {
     player.y = canvas.height - player.height;
     player.vy = 0;
     player.onGround = true;
   }
-
   if (player.x < 0) player.x = 0;
   if (player.x + player.width > canvas.width) player.x = canvas.width - player.width;
-
-  // Send player state to server
-  ws.send(JSON.stringify(player));
 }
 
-// Draw everything
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -86,16 +74,7 @@ function draw() {
     ctx.fillRect(plat.x, plat.y, plat.width, plat.height);
   }
 
-  // Draw other players
-  for (const id in players) {
-    if (players[id] !== player) {
-      const p = players[id];
-      ctx.fillStyle = p.color || 'blue';
-      ctx.fillRect(p.x, p.y, p.width, p.height);
-    }
-  }
-
-  // Draw self
+  // Draw player
   ctx.fillStyle = player.color;
   ctx.fillRect(player.x, player.y, player.width, player.height);
 }

@@ -299,5 +299,3 @@ function loop() {
 }
 
 loop();
-
-loop();

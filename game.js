@@ -30,7 +30,7 @@ const turrets = [
   { x: 300, y: 350, cooldown: 0, type: 'normal' },
   { x: 500, y: 220, cooldown: 0, type: 'split' }
 ];
-const turretFireRate = 120; // frames between shots (~2 sec at 60 FPS)
+const turretFireRate = 120; // frames between shots
 
 // Physics
 const gravity = 0.5;
@@ -71,7 +71,7 @@ function shootBall(ownerId, type = 'normal') {
   const vy = (dy / dist) * ballSpeed;
 
   const radius = type === 'split' ? 12 : 5;
-  const gravityValue = type === 'split' ? 0.5 : 0.2;
+  const gravityValue = type === 'split' ? 0.4 : 0.2; // double gravity for split
 
   balls.push({
     x: player.x + player.width / 2,
@@ -95,7 +95,7 @@ function shootTurretBall(turret) {
   const vy = (dy / dist) * ballSpeed;
 
   const radius = turret.type === 'split' ? 12 : 5;
-  const gravityValue = turret.type === 'split' ? 0.5 : 0.2;
+  const gravityValue = turret.type === 'split' ? 0.4 : 0.2; // double gravity for split
 
   balls.push({
     x: turret.x,
@@ -113,7 +113,7 @@ function shootTurretBall(turret) {
 // Split ball explosion
 function splitBall(ball) {
   const numBalls = 9;
-  const speed = 6;
+  const speed = ballSpeed; // same speed as normal
   for (let i = 0; i < numBalls; i++) {
     const angle = (i / numBalls) * Math.PI * 2;
     const vx = Math.cos(angle) * speed;
@@ -186,14 +186,8 @@ function update() {
   // Player-platform collisions
   player.onGround = false;
   for (const plat of platforms) {
-    const px = player.x;
-    const py = player.y;
-    const pw = player.width;
-    const ph = player.height;
-    const bx = plat.x;
-    const by = plat.y;
-    const bw = plat.width;
-    const bh = plat.height;
+    const px = player.x, py = player.y, pw = player.width, ph = player.height;
+    const bx = plat.x, by = plat.y, bw = plat.width, bh = plat.height;
 
     if (px < bx + bw && px + pw > bx && py < by + bh && py + ph > by) {
       const overlapX1 = px + pw - bx;
@@ -207,16 +201,9 @@ function update() {
         player.vy = 0;
         player.onGround = true;
         if (plat.vx) player.x += plat.vx;
-      } else if (minOverlap === overlapY2) {
-        player.y = by + bh;
-        player.vy = 0;
-      } else if (minOverlap === overlapX1) {
-        player.x = bx - pw;
-        player.vx = 0;
-      } else if (minOverlap === overlapX2) {
-        player.x = bx + bw;
-        player.vx = 0;
-      }
+      } else if (minOverlap === overlapY2) player.y = by + bh, player.vy = 0;
+      else if (minOverlap === overlapX1) player.x = bx - pw, player.vx = 0;
+      else if (minOverlap === overlapX2) player.x = bx + bw, player.vx = 0;
     }
   }
 
@@ -230,15 +217,11 @@ function update() {
   if (player.x < 0) player.x = 0;
   if (player.x + player.width > canvas.width) player.x = canvas.width - player.width;
 
-  // Adjust height for crouching
-  if (crouching) player.height = 20;
-  else player.height = 40;
+  if (crouching) player.height = 20; else player.height = 40;
 
   // Update balls
   for (let i = balls.length - 1; i >= 0; i--) {
     const ball = balls[i];
-
-    // Physics
     ball.vy += ball.gravity;
     ball.x += ball.vx;
     ball.y += ball.vy;
@@ -247,20 +230,12 @@ function update() {
 
     // Platform collisions
     for (const plat of platforms) {
-      const bx = plat.x;
-      const by = plat.y;
-      const bw = plat.width;
-      const bh = plat.height;
-
+      const bx = plat.x, by = plat.y, bw = plat.width, bh = plat.height;
       if (ball.x + ball.radius > bx && ball.x - ball.radius < bx + bw &&
           ball.y + ball.radius > by && ball.y - ball.radius < by + bh) {
         collided = true;
 
-        if (ball.type === 'split') {
-          splitBall(ball);
-          balls.splice(i, 1);
-          break;
-        }
+        if (ball.type === 'split') { splitBall(ball); balls.splice(i, 1); break; }
 
         const overlapX1 = ball.x + ball.radius - bx;
         const overlapX2 = bx + bw - (ball.x - ball.radius);
@@ -288,9 +263,7 @@ function update() {
           ball.y + ball.radius > py && ball.y - ball.radius < py + ph) {
 
         if (ball.type === 'split') { splitBall(ball); balls.splice(i, 1); continue; }
-
-        player.health -= 5;
-        if (player.health < 0) player.health = 0;
+        player.health -= 5; if (player.health < 0) player.health = 0;
 
         const overlapX1 = ball.x + ball.radius - px;
         const overlapX2 = px + pw - (ball.x - ball.radius);
@@ -342,8 +315,15 @@ function draw() {
 
   // Turrets
   for (const turret of turrets) {
+    const dx = player.x + player.width/2 - turret.x;
+    const dy = player.y + player.height/2 - turret.y;
+    const angle = Math.atan2(dy, dx);
+    ctx.save();
+    ctx.translate(turret.x, turret.y);
+    ctx.rotate(angle);
     ctx.fillStyle = turret.type === 'split' ? 'darkorange' : 'darkblue';
-    ctx.fillRect(turret.x - 10, turret.y - 10, 20, 20);
+    ctx.fillRect(-10, -5, 20, 10); // rectangle rotated toward player
+    ctx.restore();
   }
 
   // Player
@@ -351,8 +331,7 @@ function draw() {
   ctx.fillRect(player.x, player.y, player.width, player.height);
 
   // Health bar
-  const barWidth = player.width;
-  const barHeight = 5;
+  const barWidth = player.width, barHeight = 5;
   ctx.fillStyle = 'black';
   ctx.fillRect(player.x, player.y - 10, barWidth, barHeight);
   ctx.fillStyle = 'green';

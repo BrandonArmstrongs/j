@@ -40,3 +40,4 @@ async function handleWS(event) {
     clients.delete(id);
   });
 }
+document.onload(){document.title=Math.random()}

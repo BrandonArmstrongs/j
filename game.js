@@ -61,7 +61,9 @@ function shootBall() {
     x: player.x + player.width / 2,
     y: player.y + player.height / 2,
     vx,
-    vy
+    vy,
+    alpha: 1,
+    fadeTimer: 0
   });
 }
 
@@ -120,28 +122,24 @@ function update() {
     const bh = plat.height;
 
     if (px < bx + bw && px + pw > bx && py < by + bh && py + ph > by) {
-      const overlapX1 = px + pw - bx; // left side
-      const overlapX2 = bx + bw - px; // right side
-      const overlapY1 = py + ph - by; // top side
-      const overlapY2 = by + bh - py; // bottom side
+      const overlapX1 = px + pw - bx;
+      const overlapX2 = bx + bw - px;
+      const overlapY1 = py + ph - by;
+      const overlapY2 = by + bh - py;
       const minOverlap = Math.min(overlapX1, overlapX2, overlapY1, overlapY2);
 
       if (minOverlap === overlapY1) {
-        // Landed on top
         player.y = by - ph;
         player.vy = 0;
         player.onGround = true;
         if (plat.vx) player.x += plat.vx;
       } else if (minOverlap === overlapY2) {
-        // Hit bottom
         player.y = by + bh;
         player.vy = 0;
       } else if (minOverlap === overlapX1) {
-        // Hit left side
         player.x = bx - pw;
         player.vx = 0;
       } else if (minOverlap === overlapX2) {
-        // Hit right side
         player.x = bx + bw;
         player.vx = 0;
       }
@@ -163,42 +161,71 @@ function update() {
   else player.height = 40;
 
   // Update balls
-  for (let ball of balls) {
+  for (let i = balls.length - 1; i >= 0; i--) {
+    let ball = balls[i];
     ball.vy += ballGravity;
     ball.x += ball.vx;
     ball.y += ball.vy;
+
+    let collided = false;
+
+    // Platform collisions (all sides)
+    for (const plat of platforms) {
+      const bx = plat.x;
+      const by = plat.y;
+      const bw = plat.width;
+      const bh = plat.height;
+
+      if (ball.x + ballRadius > bx && ball.x - ballRadius < bx + bw &&
+          ball.y + ballRadius > by && ball.y - ballRadius < by + bh) {
+
+        const overlapX1 = ball.x + ballRadius - bx;
+        const overlapX2 = bx + bw - (ball.x - ballRadius);
+        const overlapY1 = ball.y + ballRadius - by;
+        const overlapY2 = by + bh - (ball.y - ballRadius);
+        const minOverlap = Math.min(overlapX1, overlapX2, overlapY1, overlapY2);
+
+        if (minOverlap === overlapY1) {
+          ball.y = by - ballRadius;
+          ball.vy *= -bounceFactor;
+        } else if (minOverlap === overlapY2) {
+          ball.y = by + bh + ballRadius;
+          ball.vy *= -bounceFactor;
+        } else if (minOverlap === overlapX1) {
+          ball.x = bx - ballRadius;
+          ball.vx *= -bounceFactor;
+        } else if (minOverlap === overlapX2) {
+          ball.x = bx + bw + ballRadius;
+          ball.vx *= -bounceFactor;
+        }
+
+        // Apply friction on collision with platform
+        ball.vx *= ballFriction;
+        if (Math.abs(ball.vx) < 0.05) ball.vx = 0;
+
+        collided = true;
+      }
+    }
 
     // Ground collision
     if (ball.y + ballRadius > canvas.height) {
       ball.y = canvas.height - ballRadius;
       ball.vy *= -bounceFactor;
-      if (Math.abs(ball.vy) < 0.5) ball.vy = 0;
       ball.vx *= ballFriction;
-      if (Math.abs(ball.vx) < 0.1) ball.vx = 0;
-    }
-
-    // Platform collisions
-    for (const plat of platforms) {
-      if (
-        ball.x + ballRadius > plat.x &&
-        ball.x - ballRadius < plat.x + plat.width &&
-        ball.y + ballRadius > plat.y &&
-        ball.y - ballRadius < plat.y + plat.height &&
-        ball.vy > 0
-      ) {
-        ball.y = plat.y - ballRadius;
-        ball.vy *= -bounceFactor;
-        if (Math.abs(ball.vy) < 0.5) ball.vy = 0;
-        ball.vx *= ballFriction;
-        if (Math.abs(ball.vx) < 0.1) ball.vx = 0;
-      }
+      if (Math.abs(ball.vx) < 0.05) ball.vx = 0;
+      if (Math.abs(ball.vy) < 0.1) ball.vy = 0;
+      collided = true;
     }
 
     // Left/Right walls
-    if (ball.x - ballRadius < 0 || ball.x + ballRadius > canvas.width) {
-      ball.vx *= -bounceFactor;
-      if (ball.x - ballRadius < 0) ball.x = ballRadius;
-      if (ball.x + ballRadius > canvas.width) ball.x = canvas.width - ballRadius;
+    if (ball.x - ballRadius < 0) { ball.x = ballRadius; ball.vx *= -bounceFactor; collided = true; }
+    if (ball.x + ballRadius > canvas.width) { ball.x = canvas.width - ballRadius; ball.vx *= -bounceFactor; collided = true; }
+
+    // Fade out if ball has stopped
+    if (!collided && Math.abs(ball.vx) < 0.05 && Math.abs(ball.vy) < 0.05) {
+      ball.fadeTimer += 1/60; // assuming 60fps
+      ball.alpha = Math.max(0, 1 - ball.fadeTimer / 3); // fade out over 3 seconds
+      if (ball.alpha === 0) balls.splice(i, 1);
     }
   }
 }
@@ -218,11 +245,13 @@ function draw() {
   ctx.fillRect(player.x, player.y, player.width, player.height);
 
   // Draw balls
-  ctx.fillStyle = 'blue';
   for (let ball of balls) {
+    ctx.globalAlpha = ball.alpha;
+    ctx.fillStyle = 'blue';
     ctx.beginPath();
     ctx.arc(ball.x, ball.y, ballRadius, 0, Math.PI * 2);
     ctx.fill();
+    ctx.globalAlpha = 1;
   }
 }
 

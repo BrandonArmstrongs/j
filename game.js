@@ -137,39 +137,46 @@ function update() {
   else player.height = 40;
 
   // Update balls
-  for (let ball of balls) {
-    ball.vy += ballGravity;
-    ball.x += ball.vx;
-    ball.y += ball.vy;
+for (let ball of balls) {
+  ball.vy += ballGravity;
+  ball.x += ball.vx;
+  ball.y += ball.vy;
 
-    // Ground collision
-    if (ball.y + ballRadius > canvas.height) {
-      ball.y = canvas.height - ballRadius;
+  // Ground collision
+  if (ball.y + ballRadius > canvas.height) {
+    ball.y = canvas.height - ballRadius;
+    ball.vy *= -bounceFactor;
+    if (Math.abs(ball.vy) < 0.5) ball.vy = 0;
+
+    // Apply horizontal friction
+    ball.vx *= 0.9; // 10% friction per frame on ground
+    if (Math.abs(ball.vx) < 0.1) ball.vx = 0; // stop small movement
+  }
+
+  // Platform collisions
+  for (const plat of platforms) {
+    if (
+      ball.x + ballRadius > plat.x &&
+      ball.x - ballRadius < plat.x + plat.width &&
+      ball.y + ballRadius > plat.y &&
+      ball.y - ballRadius < plat.y + plat.height &&
+      ball.vy > 0
+    ) {
+      ball.y = plat.y - ballRadius;
       ball.vy *= -bounceFactor;
-      if (Math.abs(ball.vy) < 0.5) ball.vy = 0; // stop small bounces
-    }
+      if (Math.abs(ball.vy) < 0.5) ball.vy = 0;
 
-    // Platform collisions
-    for (const plat of platforms) {
-      if (
-        ball.x + ballRadius > plat.x &&
-        ball.x - ballRadius < plat.x + plat.width &&
-        ball.y + ballRadius > plat.y &&
-        ball.y - ballRadius < plat.y + plat.height &&
-        ball.vy > 0
-      ) {
-        ball.y = plat.y - ballRadius;
-        ball.vy *= -bounceFactor;
-        if (Math.abs(ball.vy) < 0.5) ball.vy = 0;
-      }
+      // Apply horizontal friction
+      ball.vx *= 0.9;
+      if (Math.abs(ball.vx) < 0.1) ball.vx = 0;
     }
+  }
 
-    // Left/Right walls
-    if (ball.x - ballRadius < 0 || ball.x + ballRadius > canvas.width) {
-      ball.vx *= -bounceFactor;
-      if (ball.x - ballRadius < 0) ball.x = ballRadius;
-      if (ball.x + ballRadius > canvas.width) ball.x = canvas.width - ballRadius;
-    }
+  // Left/Right walls
+  if (ball.x - ballRadius < 0 || ball.x + ballRadius > canvas.width) {
+    ball.vx *= -bounceFactor;
+    if (ball.x - ballRadius < 0) ball.x = ballRadius;
+    if (ball.x + ballRadius > canvas.width) ball.x = canvas.width - ballRadius;
   }
 }
 

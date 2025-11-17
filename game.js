@@ -17,37 +17,26 @@ let player = {
   health: 100
 };
 
-// Platforms
+// Platforms (updated map)
 const platforms = [
-  // Ground
   { x: 0, y: 380, width: 800, height: 20, vx: 0 },
-
-  // Middle platforms
   { x: 50, y: 320, width: 120, height: 10, vx: 1, minX: 50, maxX: 200 },
   { x: 200, y: 270, width: 80, height: 10, vx: 0 },
   { x: 300, y: 230, width: 100, height: 10, vx: 1.5, minX: 300, maxX: 450 },
   { x: 450, y: 180, width: 60, height: 10, vx: 0 },
-
-  // Narrow ledges
   { x: 550, y: 150, width: 40, height: 10, vx: 0 },
   { x: 610, y: 120, width: 50, height: 10, vx: 0 },
-
-  // Moving high platforms
   { x: 700, y: 90, width: 80, height: 10, vx: 2, minX: 700, maxX: 780 },
-
-  // Floating platform
   { x: 350, y: 100, width: 100, height: 10, vx: 1, minX: 350, maxX: 500 }
 ];
 
-
-// Turrets
+// Turrets (updated positions)
 const turrets = [
-  { x: 100, y: 310, cooldown: 0, type: 'normal' },          // On first moving platform
-  { x: 310, y: 220, cooldown: 0, type: 'split' },           // Middle platform
-  { x: 470, y: 170, cooldown: 0, type: 'splittingsquared' },// Near narrow ledge
-  { x: 720, y: 80, cooldown: 0, type: 'split' }            // High moving platform
+  { x: 100, y: 310, cooldown: 0, type: 'normal' },
+  { x: 310, y: 220, cooldown: 0, type: 'split' },
+  { x: 470, y: 170, cooldown: 0, type: 'splittingsquared' },
+  { x: 720, y: 80, cooldown: 0, type: 'split' }
 ];
-
 const turretFireRate = 120;
 
 // Physics
@@ -106,12 +95,30 @@ function shootTurretBall(turret) {
   balls.push({x: turret.x, y: turret.y, vx, vy, owner: -1, type: turret.type, radius, gravity: gravityValue, bounces:0});
 }
 
+// Line of sight check
+function hasLineOfSight(turret, player) {
+  const steps = 10;
+  const dx = (player.x + player.width/2 - turret.x) / steps;
+  const dy = (player.y + player.height/2 - turret.y) / steps;
+
+  for (let i=1; i<=steps; i++){
+    const checkX = turret.x + dx * i;
+    const checkY = turret.y + dy * i;
+
+    for (const plat of platforms){
+      if(checkX>plat.x && checkX<plat.x+plat.width && checkY>plat.y && checkY<plat.y+plat.height){
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
 // Split logic
 function splitBall(ball){
   const numBalls=9;
   const speed=ballSpeed;
   if(ball.type==='splittingsquared'){
-    // spawn 9 split balls
     for(let i=0;i<numBalls;i++){
       const angle=(i/numBalls)*Math.PI*2;
       const vx=Math.cos(angle)*speed;
@@ -119,7 +126,6 @@ function splitBall(ball){
       balls.push({x:ball.x, y:ball.y, vx, vy, owner:ball.owner, type:'split', radius:12, gravity:0.4, bounces:0});
     }
   } else if(ball.type==='split'){
-    // spawn 9 normal balls
     for(let i=0;i<numBalls;i++){
       const angle=(i/numBalls)*Math.PI*2;
       const vx=Math.cos(angle)*speed;
@@ -131,15 +137,17 @@ function splitBall(ball){
 
 // Update
 function update(){
-  // Move platforms
   for(const plat of platforms){
-    if(plat.vx){ plat.x+=plat.vx; if(plat.x<plat.minX||plat.x+plat.width>plat.maxX) plat.vx*=-1;}
+    if(plat.vx){ plat.x+=plat.vx; if(plat.x<plat.minX||plat.x+plat.width>plat.maxX) plat.vx*=-1; }
   }
 
-  // Turrets
   for(const turret of turrets){
-    if(turret.cooldown<=0){ shootTurretBall(turret); turret.cooldown=turretFireRate; }
-    else turret.cooldown--;
+    if(turret.cooldown<=0){
+      if(hasLineOfSight(turret, player)){
+        shootTurretBall(turret);
+        turret.cooldown = turretFireRate;
+      }
+    } else turret.cooldown--;
   }
 
   const crouching = keys['arrowdown']||keys['s'];
@@ -156,7 +164,6 @@ function update(){
 
   player.vy+=gravity; player.x+=player.vx; player.y+=player.vy;
 
-  // Player-platform collision
   player.onGround=false;
   for(const plat of platforms){
     const px=player.x,py=player.y,pw=player.width,ph=player.height;
@@ -176,13 +183,11 @@ function update(){
   if(player.x+player.width>canvas.width) player.x=canvas.width-player.width;
   if(crouching) player.height=20; else player.height=40;
 
-  // Balls
   for(let i=balls.length-1;i>=0;i--){
     const ball=balls[i];
     ball.vy+=ball.gravity; ball.x+=ball.vx; ball.y+=ball.vy;
     let collided=false;
 
-    // Platform collisions
     for(const plat of platforms){
       const bx=plat.x,by=plat.y,bw=plat.width,bh=plat.height;
       if(ball.x+ball.radius>bx && ball.x-ball.radius<bx+bw && ball.y+ball.radius>by && ball.y-ball.radius<by+bh){
@@ -203,7 +208,6 @@ function update(){
     }
     if(collided) continue;
 
-    // Player collision
     if(ball.owner!==player.id){
       const px=player.x,py=player.y,pw=player.width,ph=player.height;
       if(ball.x+ball.radius>px && ball.x-ball.radius<px+pw && ball.y+ball.radius>py && ball.y-ball.radius<py+ph){
@@ -221,14 +225,12 @@ function update(){
       }
     }
 
-    // Ground
     if(ball.y+ball.radius>canvas.height){
       if(ball.type==='split'||ball.type==='splittingsquared'){ splitBall(ball); balls.splice(i,1); continue; }
       ball.y=canvas.height-ball.radius; ball.vy*=-bounceFactor; ball.vx*=ballFriction;
       ball.bounces++; if(ball.bounces>=4) balls.splice(i,1);
     }
 
-    // Walls
     if(ball.x-ball.radius<0 || ball.x+ball.radius>canvas.width){
       if(ball.type==='split'||ball.type==='splittingsquared'){ splitBall(ball); balls.splice(i,1); continue; }
       if(ball.x-ball.radius<0) ball.x=ball.radius;
@@ -242,11 +244,8 @@ function update(){
 function draw(){
   ctx.clearRect(0,0,canvas.width,canvas.height);
 
-  // Platforms
-  ctx.fillStyle='#654321';
-  for(const plat of platforms) ctx.fillRect(plat.x,plat.y,plat.width,plat.height);
+  for(const plat of platforms){ ctx.fillStyle='#654321'; ctx.fillRect(plat.x,plat.y,plat.width,plat.height); }
 
-  // Turrets
   for(const turret of turrets){
     const dx=player.x+player.width/2-turret.x;
     const dy=player.y+player.height/2-turret.y;
@@ -256,16 +255,12 @@ function draw(){
     ctx.fillRect(-10,-5,20,10); ctx.restore();
   }
 
-  // Player
-  ctx.fillStyle=player.color;
-  ctx.fillRect(player.x,player.y,player.width,player.height);
+  ctx.fillStyle=player.color; ctx.fillRect(player.x,player.y,player.width,player.height);
 
-  // Health
   const barWidth=player.width, barHeight=5;
   ctx.fillStyle='black'; ctx.fillRect(player.x,player.y-10,barWidth,barHeight);
   ctx.fillStyle='green'; ctx.fillRect(player.x,player.y-10,barWidth*(player.health/player.maxHealth),barHeight);
 
-  // Balls
   for(const ball of balls){
     ctx.fillStyle=ball.type==='split'?'orange':ball.type==='splittingsquared'?'purple':'blue';
     ctx.beginPath(); ctx.arc(ball.x,ball.y,ball.radius,0,Math.PI*2); ctx.fill();

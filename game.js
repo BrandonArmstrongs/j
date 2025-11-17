@@ -1,24 +1,25 @@
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
-// Player
+// Player (stickman)
 let player = {
   x: 50,
   y: 300,
-  width: 30,
-  height: 30,
+  width: 20,
+  height: 40,
   color: 'red',
   vx: 0,
   vy: 0,
   onGround: false,
-  sliding: false
+  sliding: false,
+  frame: 0 // for animation
 };
 
-// Platforms: some static, some horizontal moving
+// Platforms
 const platforms = [
-  { x: 0, y: 380, width: 800, height: 20, vx: 0 },           // ground
+  { x: 0, y: 380, width: 800, height: 20, vx: 0 },
   { x: 150, y: 300, width: 100, height: 10, vx: 1, minX: 150, maxX: 300 },
-  { x: 400, y: 250, width: 120, height: 10, vx: 0 },         // static
+  { x: 400, y: 250, width: 120, height: 10, vx: 0 },
   { x: 600, y: 180, width: 80, height: 10, vx: 2, minX: 600, maxX: 700 }
 ];
 
@@ -26,7 +27,7 @@ const platforms = [
 const gravity = 0.5;
 const speed = 3;
 const jumpPower = -10;
-const slideFriction = 0.1;
+const slideFriction = 0.05; // slower friction = longer slide
 
 // Controls
 const keys = {};
@@ -43,7 +44,6 @@ function update() {
     }
   }
 
-  // Check if crouching
   const crouching = keys['arrowdown'] || keys['s'];
 
   // Horizontal movement
@@ -53,29 +53,23 @@ function update() {
     if (keys['arrowright'] || keys['d']) player.vx = speed;
 
     // Start sliding if crouching and moving
-    if (crouching && player.vx !== 0) player.sliding = true;
+    if (crouching && Math.abs(player.vx) > 0) {
+      player.sliding = true;
+      player.vx *= 1.5; // boost initial slide speed
+    }
   }
 
   // Jump
   if ((keys['arrowup'] || keys['w']) && player.onGround) {
     player.vy = jumpPower;
     player.onGround = false;
-    player.sliding = false; // stop sliding when jumping
-  }
-
-  // Crouch visual
-  if (crouching) {
-    player.height = 15;
-    player.color = 'darkred';
-  } else {
-    player.height = 30;
-    player.color = 'red';
+    player.sliding = false;
   }
 
   // Apply sliding friction
   if (player.sliding) {
     player.vx *= (1 - slideFriction);
-    if (Math.abs(player.vx) < 0.1) player.sliding = false;
+    if (Math.abs(player.vx) < 0.2) player.sliding = false;
   }
 
   // Apply gravity
@@ -96,7 +90,7 @@ function update() {
       player.vy = 0;
       player.onGround = true;
 
-      // Move player with platform
+      // Move player with moving platform
       if (plat.vx) player.x += plat.vx;
     }
   }
@@ -110,6 +104,12 @@ function update() {
   }
   if (player.x < 0) player.x = 0;
   if (player.x + player.width > canvas.width) player.x = canvas.width - player.width;
+
+  // Animate frame for stickman legs
+  if (Math.abs(player.vx) > 0 && player.onGround && !player.sliding) {
+    player.frame += 0.2;
+    if (player.frame > 2) player.frame = 0;
+  } else player.frame = 0;
 }
 
 // Draw function
@@ -122,9 +122,42 @@ function draw() {
     ctx.fillRect(plat.x, plat.y, plat.width, plat.height);
   }
 
-  // Draw player
-  ctx.fillStyle = player.color;
-  ctx.fillRect(player.x, player.y, player.width, player.height);
+  // Draw stickman
+  ctx.strokeStyle = player.color;
+  ctx.lineWidth = 2;
+
+  // Body
+  ctx.beginPath();
+  ctx.moveTo(player.x + player.width/2, player.y + player.height); // feet
+  ctx.lineTo(player.x + player.width/2, player.y + (player.height/2)); // body
+  ctx.stroke();
+
+  // Head
+  ctx.beginPath();
+  ctx.arc(player.x + player.width/2, player.y + (player.height/2) - 10, 5, 0, Math.PI*2);
+  ctx.stroke();
+
+  // Arms
+  ctx.beginPath();
+  ctx.moveTo(player.x + player.width/2, player.y + player.height/2);
+  if (!player.sliding) {
+    // swing arms
+    ctx.lineTo(player.x + player.width/2 + (player.frame === 0 ? -10 : 10), player.y + player.height/2 + 10);
+  } else {
+    ctx.lineTo(player.x + player.width/2 + 15 * Math.sign(player.vx), player.y + player.height/2 + 5);
+  }
+  ctx.stroke();
+
+  // Legs
+  ctx.beginPath();
+  ctx.moveTo(player.x + player.width/2, player.y + player.height);
+  if (!player.sliding) {
+    ctx.lineTo(player.x + player.width/2 + (player.frame === 0 ? -5 : 5), player.y + player.height + 15);
+  } else {
+    // sliding leg
+    ctx.lineTo(player.x + player.width/2 + 20 * Math.sign(player.vx), player.y + player.height + 5);
+  }
+  ctx.stroke();
 }
 
 // Game loop

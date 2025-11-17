@@ -1,7 +1,7 @@
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
-// Player (stickman)
+// Player (rectangle)
 let player = {
   x: 50,
   y: 300,
@@ -11,8 +11,7 @@ let player = {
   vx: 0,
   vy: 0,
   onGround: false,
-  sliding: false,
-  swing: 0 // swing angle for running animation
+  sliding: false
 };
 
 // Platforms
@@ -54,7 +53,7 @@ function update() {
 
     if (crouching && Math.abs(player.vx) > 0) {
       player.sliding = true;
-      player.vx *= 1.5;
+      player.vx *= 1.5; // initial slide boost
     }
   }
 
@@ -88,6 +87,7 @@ function update() {
       player.y = plat.y - player.height;
       player.vy = 0;
       player.onGround = true;
+
       if (plat.vx) player.x += plat.vx;
     }
   }
@@ -102,62 +102,9 @@ function update() {
   if (player.x < 0) player.x = 0;
   if (player.x + player.width > canvas.width) player.x = canvas.width - player.width;
 
-  // Update swing for smooth running animation
-  if (player.onGround && !player.sliding && Math.abs(player.vx) > 0) {
-    player.swing += 0.2;
-  } else player.swing = 0;
-}
-
-// Draw stickman with both arms and legs
-function drawPlayer() {
-  ctx.strokeStyle = player.color;
-  ctx.lineWidth = 2;
-
-  const cx = player.x + player.width / 2;
-  const cy = player.y + player.height / 2;
-
-  // Body
-  ctx.beginPath();
-  ctx.moveTo(cx, player.y + player.height);
-  ctx.lineTo(cx, cy);
-  ctx.stroke();
-
-  // Head
-  ctx.beginPath();
-  ctx.arc(cx, cy - 10, 6, 0, Math.PI * 2);
-  ctx.stroke();
-
-  // Arms
-  ctx.beginPath();
-  const armSwing = Math.sin(player.swing) * 10;
-  // Left arm
-  ctx.moveTo(cx, cy);
-  if (!player.sliding) ctx.lineTo(cx - armSwing, cy + 10);
-  else ctx.lineTo(cx - 15 * Math.sign(player.vx || 1), cy + 8);
-  ctx.stroke();
-
-  ctx.beginPath();
-  // Right arm
-  ctx.moveTo(cx, cy);
-  if (!player.sliding) ctx.lineTo(cx + armSwing, cy + 10);
-  else ctx.lineTo(cx + 15 * Math.sign(player.vx || 1), cy + 8);
-  ctx.stroke();
-
-  // Legs
-  const legSwing = Math.sin(player.swing + Math.PI / 2) * 10;
-  // Left leg
-  ctx.beginPath();
-  ctx.moveTo(cx, player.y + player.height);
-  if (!player.sliding) ctx.lineTo(cx - legSwing, player.y + player.height + 15);
-  else ctx.lineTo(cx - 20 * Math.sign(player.vx || 1), player.y + player.height + 5);
-  ctx.stroke();
-
-  // Right leg
-  ctx.beginPath();
-  ctx.moveTo(cx, player.y + player.height);
-  if (!player.sliding) ctx.lineTo(cx + legSwing, player.y + player.height + 15);
-  else ctx.lineTo(cx + 20 * Math.sign(player.vx || 1), player.y + player.height + 5);
-  ctx.stroke();
+  // Adjust height when crouching
+  if (crouching) player.height = 20;
+  else player.height = 40;
 }
 
 // Draw loop
@@ -170,7 +117,9 @@ function draw() {
     ctx.fillRect(plat.x, plat.y, plat.width, plat.height);
   }
 
-  drawPlayer();
+  // Draw player rectangle
+  ctx.fillStyle = player.color;
+  ctx.fillRect(player.x, player.y, player.width, player.height);
 }
 
 // Game loop

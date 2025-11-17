@@ -72,12 +72,11 @@ function shootBall(ownerId, type = 'normal') {
     y: player.y + player.height / 2,
     vx,
     vy,
-    alpha: 1,
-    fadeTimer: 0,
     owner: ownerId,
     type,
     radius,
-    gravity: gravityValue
+    gravity: gravityValue,
+    bounces: 0
   });
 }
 
@@ -94,12 +93,11 @@ function splitBall(ball) {
       y: ball.y,
       vx,
       vy,
-      alpha: 1,
-      fadeTimer: 0,
       owner: ball.owner,
       type: 'normal',
       radius: 5,
-      gravity: 0.2
+      gravity: 0.2,
+      bounces: 0
     });
   }
 }
@@ -218,12 +216,14 @@ function update() {
           ball.y + ball.radius > by && ball.y - ball.radius < by + bh) {
         collided = true;
 
+        // Split ball explosion
         if (ball.type === 'split') {
           splitBall(ball);
           balls.splice(i, 1);
           break;
         }
 
+        // Bounce
         const overlapX1 = ball.x + ball.radius - bx;
         const overlapX2 = bx + bw - (ball.x - ball.radius);
         const overlapY1 = ball.y + ball.radius - by;
@@ -246,6 +246,12 @@ function update() {
 
         ball.vx *= ballFriction;
         ball.vy *= ballFriction;
+        ball.bounces += 1;
+        if (ball.bounces >= 4) {
+          balls.splice(i, 1);
+          collided = true;
+          break;
+        }
       }
     }
     if (collided) continue;
@@ -270,6 +276,7 @@ function update() {
         player.health -= 5;
         if (player.health < 0) player.health = 0;
 
+        // Bounce
         const overlapX1 = ball.x + ball.radius - px;
         const overlapX2 = px + pw - (ball.x - ball.radius);
         const overlapY1 = ball.y + ball.radius - py;
@@ -292,6 +299,8 @@ function update() {
 
         ball.vx *= ballFriction;
         ball.vy *= ballFriction;
+        ball.bounces += 1;
+        if (ball.bounces >= 4) balls.splice(i, 1);
       }
     }
 
@@ -305,8 +314,11 @@ function update() {
       ball.y = canvas.height - ball.radius;
       ball.vy *= -bounceFactor;
       ball.vx *= ballFriction;
-      if (Math.abs(ball.vx) < 0.05) ball.vx = 0;
-      if (Math.abs(ball.vy) < 0.05) ball.vy = 0;
+      ball.bounces += 1;
+      if (ball.bounces >= 4) {
+        balls.splice(i, 1);
+        continue;
+      }
     }
 
     // Walls
@@ -319,18 +331,8 @@ function update() {
       if (ball.x - ball.radius < 0) ball.x = ball.radius;
       if (ball.x + ball.radius > canvas.width) ball.x = canvas.width - ball.radius;
       ball.vx *= -bounceFactor;
-    }
-
-    // Fade out
-    const fadeThreshold = 1;
-    const fadeDuration = 0.25;
-    if (Math.abs(ball.vx) < fadeThreshold && Math.abs(ball.vy) < fadeThreshold) {
-      ball.fadeTimer += 1/60;
-      ball.alpha = Math.max(0, 1 - ball.fadeTimer / fadeDuration);
-      if (ball.alpha === 0) balls.splice(i, 1);
-    } else {
-      ball.fadeTimer = 0;
-      ball.alpha = 1;
+      ball.bounces += 1;
+      if (ball.bounces >= 4) balls.splice(i, 1);
     }
   }
 }
@@ -357,12 +359,10 @@ function draw() {
 
   // Balls
   for (let ball of balls) {
-    ctx.globalAlpha = ball.alpha;
     ctx.fillStyle = ball.type === 'split' ? 'orange' : 'blue';
     ctx.beginPath();
     ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
     ctx.fill();
-    ctx.globalAlpha = 1;
   }
 }
 

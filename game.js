@@ -3,7 +3,7 @@ const ctx = canvas.getContext('2d');
 
 // Player
 let player = {
-  id: 1,  // unique player ID
+  id: 1,
   x: 50,
   y: 300,
   width: 20,
@@ -12,7 +12,9 @@ let player = {
   vx: 0,
   vy: 0,
   onGround: false,
-  sliding: false
+  sliding: false,
+  maxHealth: 100,
+  health: 100
 };
 
 // Platforms
@@ -33,9 +35,9 @@ const slideFriction = 0.05;
 let balls = [];
 const ballSpeed = 8;
 const ballRadius = 5;
-const ballGravity = 0.2;  // less gravity for floating effect
-const bounceFactor = 0.7; // lose 30% speed on bounce
-const ballFriction = 0.9; // horizontal friction on ground/platform
+const ballGravity = 0.2;
+const bounceFactor = 0.7;
+const ballFriction = 0.9;
 
 // Controls
 const keys = {};
@@ -49,10 +51,14 @@ canvas.addEventListener('mousemove', e => {
   mouse.x = e.clientX - rect.left;
   mouse.y = e.clientY - rect.top;
 });
-canvas.addEventListener('mousedown', () => shootBall(player.id));
+canvas.addEventListener('mousedown', () => shootBall(player.id, 'normal'));
+canvas.addEventListener('contextmenu', e => { // right-click to shoot split ball
+  e.preventDefault();
+  shootBall(player.id, 'split');
+});
 
 // Shoot function
-function shootBall(ownerId) {
+function shootBall(ownerId, type = 'normal') {
   const dx = mouse.x - (player.x + player.width / 2);
   const dy = mouse.y - (player.y + player.height / 2);
   const dist = Math.sqrt(dx * dx + dy * dy);
@@ -65,8 +71,32 @@ function shootBall(ownerId) {
     vy,
     alpha: 1,
     fadeTimer: 0,
-    owner: ownerId
+    owner: ownerId,
+    type
   });
+}
+
+// Split ball function
+function splitBall(ball) {
+  const spreadSpeed = 4;
+  const angles = [
+    -Math.PI/2, -3*Math.PI/4, -Math.PI/4, 0, Math.PI/4,
+    Math.PI/2, 3*Math.PI/4, Math.PI, Math.PI*7/4
+  ];
+  for (let angle of angles) {
+    const vx = Math.cos(angle) * spreadSpeed;
+    const vy = Math.sin(angle) * spreadSpeed;
+    balls.push({
+      x: ball.x,
+      y: ball.y,
+      vx,
+      vy,
+      alpha: 1,
+      fadeTimer: 0,
+      owner: ball.owner,
+      type: 'normal'
+    });
+  }
 }
 
 // Update loop
@@ -86,7 +116,6 @@ function update() {
     player.vx = 0;
     if (keys['arrowleft'] || keys['a']) player.vx = -speed;
     if (keys['arrowright'] || keys['d']) player.vx = speed;
-
     if (crouching && Math.abs(player.vx) > 0) {
       player.sliding = true;
       player.vx *= 1.5;
@@ -111,7 +140,7 @@ function update() {
   player.x += player.vx;
   player.y += player.vy;
 
-  // Player-platform collisions (full sides)
+  // Player-platform collisions
   player.onGround = false;
   for (const plat of platforms) {
     const px = player.x;
@@ -169,6 +198,8 @@ function update() {
     ball.x += ball.vx;
     ball.y += ball.vy;
 
+    let collided = false;
+
     // Platform collisions
     for (const plat of platforms) {
       const bx = plat.x;
@@ -178,6 +209,14 @@ function update() {
 
       if (ball.x + ballRadius > bx && ball.x - ballRadius < bx + bw &&
           ball.y + ballRadius > by && ball.y - ballRadius < by + bh) {
+
+        collided = true;
+
+        if (ball.type === 'split') {
+          splitBall(ball);
+          balls.splice(i, 1);
+          break;
+        }
 
         const overlapX1 = ball.x + ballRadius - bx;
         const overlapX2 = bx + bw - (ball.x - ballRadius);
@@ -203,6 +242,7 @@ function update() {
         ball.vy *= ballFriction;
       }
     }
+    if (collided) continue;
 
     // Ball-player collision (ignore own balls)
     if (ball.owner !== player.id) {
@@ -213,6 +253,16 @@ function update() {
 
       if (ball.x + ballRadius > px && ball.x - ballRadius < px + pw &&
           ball.y + ballRadius > py && ball.y - ballRadius < py + ph) {
+
+        if (ball.type === 'split') {
+          splitBall(ball);
+          balls.splice(i, 1);
+          continue;
+        }
+
+        // Damage player
+        player.health -= 5;
+        if (player.health < 0) player.health = 0;
 
         const overlapX1 = ball.x + ballRadius - px;
         const overlapX2 = px + pw - (ball.x - ballRadius);
@@ -241,6 +291,11 @@ function update() {
 
     // Ground collision
     if (ball.y + ballRadius > canvas.height) {
+      if (ball.type === 'split') {
+        splitBall(ball);
+        balls.splice(i, 1);
+        continue;
+      }
       ball.y = canvas.height - ballRadius;
       ball.vy *= -bounceFactor;
       ball.vx *= ballFriction;
@@ -249,12 +304,20 @@ function update() {
     }
 
     // Left/Right walls
-    if (ball.x - ballRadius < 0) { ball.x = ballRadius; ball.vx *= -bounceFactor; }
-    if (ball.x + ballRadius > canvas.width) { ball.x = canvas.width - ballRadius; ball.vx *= -bounceFactor; }
+    if (ball.x - ballRadius < 0 || ball.x + ballRadius > canvas.width) {
+      if (ball.type === 'split') {
+        splitBall(ball);
+        balls.splice(i, 1);
+        continue;
+      }
+      if (ball.x - ballRadius < 0) ball.x = ballRadius;
+      if (ball.x + ballRadius > canvas.width) ball.x = canvas.width - ballRadius;
+      ball.vx *= -bounceFactor;
+    }
 
-    // Fade out if slow
-    const fadeThreshold = 1;    // velocity threshold
-    const fadeDuration = 0.25;  // fade over 0.25 seconds
+    // Fade out
+    const fadeThreshold = 1;
+    const fadeDuration = 0.25;
     if (Math.abs(ball.vx) < fadeThreshold && Math.abs(ball.vy) < fadeThreshold) {
       ball.fadeTimer += 1/60;
       ball.alpha = Math.max(0, 1 - ball.fadeTimer / fadeDuration);
@@ -270,20 +333,26 @@ function update() {
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // Draw platforms
+  // Platforms
   ctx.fillStyle = '#654321';
-  for (const plat of platforms) {
-    ctx.fillRect(plat.x, plat.y, plat.width, plat.height);
-  }
+  for (const plat of platforms) ctx.fillRect(plat.x, plat.y, plat.width, plat.height);
 
-  // Draw player rectangle
+  // Player
   ctx.fillStyle = player.color;
   ctx.fillRect(player.x, player.y, player.width, player.height);
 
-  // Draw balls
+  // Health bar
+  const barWidth = player.width;
+  const barHeight = 5;
+  ctx.fillStyle = 'black';
+  ctx.fillRect(player.x, player.y - 10, barWidth, barHeight);
+  ctx.fillStyle = 'green';
+  ctx.fillRect(player.x, player.y - 10, barWidth * (player.health / player.maxHealth), barHeight);
+
+  // Balls
   for (let ball of balls) {
     ctx.globalAlpha = ball.alpha;
-    ctx.fillStyle = 'blue';
+    ctx.fillStyle = ball.type === 'split' ? 'orange' : 'blue';
     ctx.beginPath();
     ctx.arc(ball.x, ball.y, ballRadius, 0, Math.PI * 2);
     ctx.fill();

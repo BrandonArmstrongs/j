@@ -19,18 +19,35 @@ let player = {
 
 // Platforms
 const platforms = [
+  // Ground
   { x: 0, y: 380, width: 800, height: 20, vx: 0 },
-  { x: 150, y: 300, width: 100, height: 10, vx: 1, minX: 150, maxX: 300 },
-  { x: 400, y: 250, width: 120, height: 10, vx: 0 },
-  { x: 600, y: 180, width: 80, height: 10, vx: 2, minX: 600, maxX: 700 }
+
+  // Middle platforms
+  { x: 50, y: 320, width: 120, height: 10, vx: 1, minX: 50, maxX: 200 },
+  { x: 200, y: 270, width: 80, height: 10, vx: 0 },
+  { x: 300, y: 230, width: 100, height: 10, vx: 1.5, minX: 300, maxX: 450 },
+  { x: 450, y: 180, width: 60, height: 10, vx: 0 },
+
+  // Narrow ledges
+  { x: 550, y: 150, width: 40, height: 10, vx: 0 },
+  { x: 610, y: 120, width: 50, height: 10, vx: 0 },
+
+  // Moving high platforms
+  { x: 700, y: 90, width: 80, height: 10, vx: 2, minX: 700, maxX: 780 },
+
+  // Floating platform
+  { x: 350, y: 100, width: 100, height: 10, vx: 1, minX: 350, maxX: 500 }
 ];
+
 
 // Turrets
 const turrets = [
-  { x: 300, y: 350, cooldown: 0, type: 'normal' },
-  { x: 500, y: 220, cooldown: 0, type: 'split' },
-  { x: 700, y: 150, cooldown: 0, type: 'splittingsquared' }
+  { x: 100, y: 310, cooldown: 0, type: 'normal' },          // On first moving platform
+  { x: 310, y: 220, cooldown: 0, type: 'split' },           // Middle platform
+  { x: 470, y: 170, cooldown: 0, type: 'splittingsquared' },// Near narrow ledge
+  { x: 720, y: 80, cooldown: 0, type: 'split' }            // High moving platform
 ];
+
 const turretFireRate = 120;
 
 // Physics

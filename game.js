@@ -167,7 +167,7 @@ function update() {
     ball.x += ball.vx;
     ball.y += ball.vy;
 
-    // Platform collisions (all sides)
+    // Platform collisions
     for (const plat of platforms) {
       const bx = plat.x;
       const by = plat.y;
@@ -197,11 +197,42 @@ function update() {
           ball.vx *= -bounceFactor;
         }
 
-        // Apply friction
         ball.vx *= ballFriction;
-        if (Math.abs(ball.vx) < 0.05) ball.vx = 0;
-        if (Math.abs(ball.vy) < 0.05) ball.vy = 0;
+        ball.vy *= ballFriction;
       }
+    }
+
+    // Ball-player collision
+    const px = player.x;
+    const py = player.y;
+    const pw = player.width;
+    const ph = player.height;
+
+    if (ball.x + ballRadius > px && ball.x - ballRadius < px + pw &&
+        ball.y + ballRadius > py && ball.y - ballRadius < py + ph) {
+
+      const overlapX1 = ball.x + ballRadius - px;
+      const overlapX2 = px + pw - (ball.x - ballRadius);
+      const overlapY1 = ball.y + ballRadius - py;
+      const overlapY2 = py + ph - (ball.y - ballRadius);
+      const minOverlap = Math.min(overlapX1, overlapX2, overlapY1, overlapY2);
+
+      if (minOverlap === overlapY1) {
+        ball.y = py - ballRadius;
+        ball.vy *= -bounceFactor;
+      } else if (minOverlap === overlapY2) {
+        ball.y = py + ph + ballRadius;
+        ball.vy *= -bounceFactor;
+      } else if (minOverlap === overlapX1) {
+        ball.x = px - ballRadius;
+        ball.vx *= -bounceFactor;
+      } else if (minOverlap === overlapX2) {
+        ball.x = px + pw + ballRadius;
+        ball.vx *= -bounceFactor;
+      }
+
+      ball.vx *= ballFriction;
+      ball.vy *= ballFriction;
     }
 
     // Ground collision

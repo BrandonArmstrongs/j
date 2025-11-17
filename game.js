@@ -11,8 +11,7 @@ let player = {
   vx: 0,
   vy: 0,
   onGround: false,
-  sliding: false,
-  facing: 1 // 1 = right, -1 = left
+  sliding: false
 };
 
 // Platforms
@@ -31,13 +30,37 @@ const slideFriction = 0.05;
 
 // Projectiles
 let balls = [];
-const ballSpeed = 7;
+const ballSpeed = 8;
 const ballRadius = 5;
 
 // Controls
 const keys = {};
 window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
 window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+
+// Mouse aiming
+let mouse = { x: 0, y: 0 };
+canvas.addEventListener('mousemove', e => {
+  const rect = canvas.getBoundingClientRect();
+  mouse.x = e.clientX - rect.left;
+  mouse.y = e.clientY - rect.top;
+});
+canvas.addEventListener('mousedown', () => shootBall());
+
+// Shoot function
+function shootBall() {
+  const dx = mouse.x - (player.x + player.width / 2);
+  const dy = mouse.y - (player.y + player.height / 2);
+  const dist = Math.sqrt(dx * dx + dy * dy);
+  const vx = (dx / dist) * ballSpeed;
+  const vy = (dy / dist) * ballSpeed;
+  balls.push({
+    x: player.x + player.width / 2,
+    y: player.y + player.height / 2,
+    vx,
+    vy
+  });
+}
 
 // Update loop
 function update() {
@@ -54,14 +77,8 @@ function update() {
   // Horizontal movement
   if (!player.sliding) {
     player.vx = 0;
-    if (keys['arrowleft'] || keys['a']) {
-      player.vx = -speed;
-      player.facing = -1;
-    }
-    if (keys['arrowright'] || keys['d']) {
-      player.vx = speed;
-      player.facing = 1;
-    }
+    if (keys['arrowleft'] || keys['a']) player.vx = -speed;
+    if (keys['arrowright'] || keys['d']) player.vx = speed;
 
     if (crouching && Math.abs(player.vx) > 0) {
       player.sliding = true;
@@ -82,7 +99,7 @@ function update() {
     if (Math.abs(player.vx) < 0.2) player.sliding = false;
   }
 
-  // Apply gravity
+  // Gravity
   player.vy += gravity;
   player.x += player.vx;
   player.y += player.vy;
@@ -116,20 +133,6 @@ function update() {
   // Adjust height for crouching
   if (crouching) player.height = 20;
   else player.height = 40;
-
-  // Throw ball with spacebar
-  if (keys[' ']) {
-    if (!player.throwCooldown) {
-      balls.push({
-        x: player.x + player.width / 2,
-        y: player.y + player.height / 2,
-        vx: ballSpeed * player.facing,
-        vy: -2
-      });
-      player.throwCooldown = 15; // frames between throws
-    }
-  }
-  if (player.throwCooldown) player.throwCooldown--;
 
   // Update balls
   for (let ball of balls) {

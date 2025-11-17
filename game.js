@@ -1,7 +1,7 @@
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
-// Player (rectangle)
+// Player
 let player = {
   x: 50,
   y: 300,
@@ -11,7 +11,8 @@ let player = {
   vx: 0,
   vy: 0,
   onGround: false,
-  sliding: false
+  sliding: false,
+  facing: 1 // 1 = right, -1 = left
 };
 
 // Platforms
@@ -27,6 +28,11 @@ const gravity = 0.5;
 const speed = 3;
 const jumpPower = -10;
 const slideFriction = 0.05;
+
+// Projectiles
+let balls = [];
+const ballSpeed = 7;
+const ballRadius = 5;
 
 // Controls
 const keys = {};
@@ -48,12 +54,18 @@ function update() {
   // Horizontal movement
   if (!player.sliding) {
     player.vx = 0;
-    if (keys['arrowleft'] || keys['a']) player.vx = -speed;
-    if (keys['arrowright'] || keys['d']) player.vx = speed;
+    if (keys['arrowleft'] || keys['a']) {
+      player.vx = -speed;
+      player.facing = -1;
+    }
+    if (keys['arrowright'] || keys['d']) {
+      player.vx = speed;
+      player.facing = 1;
+    }
 
     if (crouching && Math.abs(player.vx) > 0) {
       player.sliding = true;
-      player.vx *= 1.5; // initial slide boost
+      player.vx *= 1.5;
     }
   }
 
@@ -64,13 +76,13 @@ function update() {
     player.sliding = false;
   }
 
-  // Sliding friction
+  // Slide friction
   if (player.sliding) {
     player.vx *= (1 - slideFriction);
     if (Math.abs(player.vx) < 0.2) player.sliding = false;
   }
 
-  // Gravity
+  // Apply gravity
   player.vy += gravity;
   player.x += player.vx;
   player.y += player.vy;
@@ -87,7 +99,6 @@ function update() {
       player.y = plat.y - player.height;
       player.vy = 0;
       player.onGround = true;
-
       if (plat.vx) player.x += plat.vx;
     }
   }
@@ -102,9 +113,37 @@ function update() {
   if (player.x < 0) player.x = 0;
   if (player.x + player.width > canvas.width) player.x = canvas.width - player.width;
 
-  // Adjust height when crouching
+  // Adjust height for crouching
   if (crouching) player.height = 20;
   else player.height = 40;
+
+  // Throw ball with spacebar
+  if (keys[' ']) {
+    if (!player.throwCooldown) {
+      balls.push({
+        x: player.x + player.width / 2,
+        y: player.y + player.height / 2,
+        vx: ballSpeed * player.facing,
+        vy: -2
+      });
+      player.throwCooldown = 15; // frames between throws
+    }
+  }
+  if (player.throwCooldown) player.throwCooldown--;
+
+  // Update balls
+  for (let ball of balls) {
+    ball.vy += gravity;
+    ball.x += ball.vx;
+    ball.y += ball.vy;
+
+    // Ground collision
+    if (ball.y + ballRadius > canvas.height) {
+      ball.y = canvas.height - ballRadius;
+      ball.vy = 0;
+      ball.vx = 0;
+    }
+  }
 }
 
 // Draw loop
@@ -120,6 +159,14 @@ function draw() {
   // Draw player rectangle
   ctx.fillStyle = player.color;
   ctx.fillRect(player.x, player.y, player.width, player.height);
+
+  // Draw balls
+  ctx.fillStyle = 'blue';
+  for (let ball of balls) {
+    ctx.beginPath();
+    ctx.arc(ball.x, ball.y, ballRadius, 0, Math.PI * 2);
+    ctx.fill();
+  }
 }
 
 // Game loop

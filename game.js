@@ -34,8 +34,6 @@ const slideFriction = 0.05;
 // Projectiles
 let balls = [];
 const ballSpeed = 8;
-const ballRadius = 5;
-const ballGravity = 0.2;
 const bounceFactor = 0.7;
 const ballFriction = 0.9;
 
@@ -52,7 +50,7 @@ canvas.addEventListener('mousemove', e => {
   mouse.y = e.clientY - rect.top;
 });
 canvas.addEventListener('mousedown', () => shootBall(player.id, 'normal'));
-canvas.addEventListener('contextmenu', e => { // right-click to shoot split ball
+canvas.addEventListener('contextmenu', e => {
   e.preventDefault();
   shootBall(player.id, 'split');
 });
@@ -64,6 +62,11 @@ function shootBall(ownerId, type = 'normal') {
   const dist = Math.sqrt(dx * dx + dy * dy);
   const vx = (dx / dist) * ballSpeed;
   const vy = (dy / dist) * ballSpeed;
+
+  // Larger/heavier for split balls
+  const radius = type === 'split' ? 12 : 5;
+  const gravityValue = type === 'split' ? 0.5 : 0.2;
+
   balls.push({
     x: player.x + player.width / 2,
     y: player.y + player.height / 2,
@@ -72,20 +75,20 @@ function shootBall(ownerId, type = 'normal') {
     alpha: 1,
     fadeTimer: 0,
     owner: ownerId,
-    type
+    type,
+    radius,
+    gravity: gravityValue
   });
 }
 
-// Split ball function
+// Split ball explosion
 function splitBall(ball) {
-  const spreadSpeed = 4;
-  const angles = [
-    -Math.PI/2, -3*Math.PI/4, -Math.PI/4, 0, Math.PI/4,
-    Math.PI/2, 3*Math.PI/4, Math.PI, Math.PI*7/4
-  ];
-  for (let angle of angles) {
-    const vx = Math.cos(angle) * spreadSpeed;
-    const vy = Math.sin(angle) * spreadSpeed;
+  const numBalls = 9;
+  const speed = 6;
+  for (let i = 0; i < numBalls; i++) {
+    const angle = (i / numBalls) * Math.PI * 2;
+    const vx = Math.cos(angle) * speed;
+    const vy = Math.sin(angle) * speed;
     balls.push({
       x: ball.x,
       y: ball.y,
@@ -94,7 +97,9 @@ function splitBall(ball) {
       alpha: 1,
       fadeTimer: 0,
       owner: ball.owner,
-      type: 'normal'
+      type: 'normal',
+      radius: 5,
+      gravity: 0.2
     });
   }
 }
@@ -193,8 +198,10 @@ function update() {
 
   // Update balls
   for (let i = balls.length - 1; i >= 0; i--) {
-    let ball = balls[i];
-    ball.vy += ballGravity;
+    const ball = balls[i];
+
+    // Physics
+    ball.vy += ball.gravity;
     ball.x += ball.vx;
     ball.y += ball.vy;
 
@@ -207,9 +214,8 @@ function update() {
       const bw = plat.width;
       const bh = plat.height;
 
-      if (ball.x + ballRadius > bx && ball.x - ballRadius < bx + bw &&
-          ball.y + ballRadius > by && ball.y - ballRadius < by + bh) {
-
+      if (ball.x + ball.radius > bx && ball.x - ball.radius < bx + bw &&
+          ball.y + ball.radius > by && ball.y - ball.radius < by + bh) {
         collided = true;
 
         if (ball.type === 'split') {
@@ -218,23 +224,23 @@ function update() {
           break;
         }
 
-        const overlapX1 = ball.x + ballRadius - bx;
-        const overlapX2 = bx + bw - (ball.x - ballRadius);
-        const overlapY1 = ball.y + ballRadius - by;
-        const overlapY2 = by + bh - (ball.y - ballRadius);
+        const overlapX1 = ball.x + ball.radius - bx;
+        const overlapX2 = bx + bw - (ball.x - ball.radius);
+        const overlapY1 = ball.y + ball.radius - by;
+        const overlapY2 = by + bh - (ball.y - ball.radius);
         const minOverlap = Math.min(overlapX1, overlapX2, overlapY1, overlapY2);
 
         if (minOverlap === overlapY1) {
-          ball.y = by - ballRadius;
+          ball.y = by - ball.radius;
           ball.vy *= -bounceFactor;
         } else if (minOverlap === overlapY2) {
-          ball.y = by + bh + ballRadius;
+          ball.y = by + bh + ball.radius;
           ball.vy *= -bounceFactor;
         } else if (minOverlap === overlapX1) {
-          ball.x = bx - ballRadius;
+          ball.x = bx - ball.radius;
           ball.vx *= -bounceFactor;
         } else if (minOverlap === overlapX2) {
-          ball.x = bx + bw + ballRadius;
+          ball.x = bx + bw + ball.radius;
           ball.vx *= -bounceFactor;
         }
 
@@ -244,15 +250,15 @@ function update() {
     }
     if (collided) continue;
 
-    // Ball-player collision (ignore own balls)
+    // Player collision (ignore own balls)
     if (ball.owner !== player.id) {
       const px = player.x;
       const py = player.y;
       const pw = player.width;
       const ph = player.height;
 
-      if (ball.x + ballRadius > px && ball.x - ballRadius < px + pw &&
-          ball.y + ballRadius > py && ball.y - ballRadius < py + ph) {
+      if (ball.x + ball.radius > px && ball.x - ball.radius < px + pw &&
+          ball.y + ball.radius > py && ball.y - ball.radius < py + ph) {
 
         if (ball.type === 'split') {
           splitBall(ball);
@@ -264,23 +270,23 @@ function update() {
         player.health -= 5;
         if (player.health < 0) player.health = 0;
 
-        const overlapX1 = ball.x + ballRadius - px;
-        const overlapX2 = px + pw - (ball.x - ballRadius);
-        const overlapY1 = ball.y + ballRadius - py;
-        const overlapY2 = py + ph - (ball.y - ballRadius);
+        const overlapX1 = ball.x + ball.radius - px;
+        const overlapX2 = px + pw - (ball.x - ball.radius);
+        const overlapY1 = ball.y + ball.radius - py;
+        const overlapY2 = py + ph - (ball.y - ball.radius);
         const minOverlap = Math.min(overlapX1, overlapX2, overlapY1, overlapY2);
 
         if (minOverlap === overlapY1) {
-          ball.y = py - ballRadius;
+          ball.y = py - ball.radius;
           ball.vy *= -bounceFactor;
         } else if (minOverlap === overlapY2) {
-          ball.y = py + ph + ballRadius;
+          ball.y = py + ph + ball.radius;
           ball.vy *= -bounceFactor;
         } else if (minOverlap === overlapX1) {
-          ball.x = px - ballRadius;
+          ball.x = px - ball.radius;
           ball.vx *= -bounceFactor;
         } else if (minOverlap === overlapX2) {
-          ball.x = px + pw + ballRadius;
+          ball.x = px + pw + ball.radius;
           ball.vx *= -bounceFactor;
         }
 
@@ -290,28 +296,28 @@ function update() {
     }
 
     // Ground collision
-    if (ball.y + ballRadius > canvas.height) {
+    if (ball.y + ball.radius > canvas.height) {
       if (ball.type === 'split') {
         splitBall(ball);
         balls.splice(i, 1);
         continue;
       }
-      ball.y = canvas.height - ballRadius;
+      ball.y = canvas.height - ball.radius;
       ball.vy *= -bounceFactor;
       ball.vx *= ballFriction;
       if (Math.abs(ball.vx) < 0.05) ball.vx = 0;
       if (Math.abs(ball.vy) < 0.05) ball.vy = 0;
     }
 
-    // Left/Right walls
-    if (ball.x - ballRadius < 0 || ball.x + ballRadius > canvas.width) {
+    // Walls
+    if (ball.x - ball.radius < 0 || ball.x + ball.radius > canvas.width) {
       if (ball.type === 'split') {
         splitBall(ball);
         balls.splice(i, 1);
         continue;
       }
-      if (ball.x - ballRadius < 0) ball.x = ballRadius;
-      if (ball.x + ballRadius > canvas.width) ball.x = canvas.width - ballRadius;
+      if (ball.x - ball.radius < 0) ball.x = ball.radius;
+      if (ball.x + ball.radius > canvas.width) ball.x = canvas.width - ball.radius;
       ball.vx *= -bounceFactor;
     }
 
@@ -354,7 +360,7 @@ function draw() {
     ctx.globalAlpha = ball.alpha;
     ctx.fillStyle = ball.type === 'split' ? 'orange' : 'blue';
     ctx.beginPath();
-    ctx.arc(ball.x, ball.y, ballRadius, 0, Math.PI * 2);
+    ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
     ctx.fill();
     ctx.globalAlpha = 1;
   }

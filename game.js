@@ -3,6 +3,7 @@ const ctx = canvas.getContext('2d');
 
 // Player
 let player = {
+  id: 1,  // unique player ID
   x: 50,
   y: 300,
   width: 20,
@@ -48,10 +49,10 @@ canvas.addEventListener('mousemove', e => {
   mouse.x = e.clientX - rect.left;
   mouse.y = e.clientY - rect.top;
 });
-canvas.addEventListener('mousedown', () => shootBall());
+canvas.addEventListener('mousedown', () => shootBall(player.id));
 
 // Shoot function
-function shootBall() {
+function shootBall(ownerId) {
   const dx = mouse.x - (player.x + player.width / 2);
   const dy = mouse.y - (player.y + player.height / 2);
   const dist = Math.sqrt(dx * dx + dy * dy);
@@ -63,7 +64,8 @@ function shootBall() {
     vx,
     vy,
     alpha: 1,
-    fadeTimer: 0
+    fadeTimer: 0,
+    owner: ownerId
   });
 }
 
@@ -202,37 +204,39 @@ function update() {
       }
     }
 
-    // Ball-player collision
-    const px = player.x;
-    const py = player.y;
-    const pw = player.width;
-    const ph = player.height;
+    // Ball-player collision (ignore own balls)
+    if (ball.owner !== player.id) {
+      const px = player.x;
+      const py = player.y;
+      const pw = player.width;
+      const ph = player.height;
 
-    if (ball.x + ballRadius > px && ball.x - ballRadius < px + pw &&
-        ball.y + ballRadius > py && ball.y - ballRadius < py + ph) {
+      if (ball.x + ballRadius > px && ball.x - ballRadius < px + pw &&
+          ball.y + ballRadius > py && ball.y - ballRadius < py + ph) {
 
-      const overlapX1 = ball.x + ballRadius - px;
-      const overlapX2 = px + pw - (ball.x - ballRadius);
-      const overlapY1 = ball.y + ballRadius - py;
-      const overlapY2 = py + ph - (ball.y - ballRadius);
-      const minOverlap = Math.min(overlapX1, overlapX2, overlapY1, overlapY2);
+        const overlapX1 = ball.x + ballRadius - px;
+        const overlapX2 = px + pw - (ball.x - ballRadius);
+        const overlapY1 = ball.y + ballRadius - py;
+        const overlapY2 = py + ph - (ball.y - ballRadius);
+        const minOverlap = Math.min(overlapX1, overlapX2, overlapY1, overlapY2);
 
-      if (minOverlap === overlapY1) {
-        ball.y = py - ballRadius;
-        ball.vy *= -bounceFactor;
-      } else if (minOverlap === overlapY2) {
-        ball.y = py + ph + ballRadius;
-        ball.vy *= -bounceFactor;
-      } else if (minOverlap === overlapX1) {
-        ball.x = px - ballRadius;
-        ball.vx *= -bounceFactor;
-      } else if (minOverlap === overlapX2) {
-        ball.x = px + pw + ballRadius;
-        ball.vx *= -bounceFactor;
+        if (minOverlap === overlapY1) {
+          ball.y = py - ballRadius;
+          ball.vy *= -bounceFactor;
+        } else if (minOverlap === overlapY2) {
+          ball.y = py + ph + ballRadius;
+          ball.vy *= -bounceFactor;
+        } else if (minOverlap === overlapX1) {
+          ball.x = px - ballRadius;
+          ball.vx *= -bounceFactor;
+        } else if (minOverlap === overlapX2) {
+          ball.x = px + pw + ballRadius;
+          ball.vx *= -bounceFactor;
+        }
+
+        ball.vx *= ballFriction;
+        ball.vy *= ballFriction;
       }
-
-      ball.vx *= ballFriction;
-      ball.vy *= ballFriction;
     }
 
     // Ground collision
@@ -248,10 +252,12 @@ function update() {
     if (ball.x - ballRadius < 0) { ball.x = ballRadius; ball.vx *= -bounceFactor; }
     if (ball.x + ballRadius > canvas.width) { ball.x = canvas.width - ballRadius; ball.vx *= -bounceFactor; }
 
-    // Fade out if almost stopped
-    if (Math.abs(ball.vx) < 0.05 && Math.abs(ball.vy) < 0.05) {
-      ball.fadeTimer += 1/60; // assuming 60fps
-      ball.alpha = Math.max(0, 1 - ball.fadeTimer / 3);
+    // Fade out if slow
+    const fadeThreshold = 1;    // velocity threshold
+    const fadeDuration = 0.25;  // fade over 0.25 seconds
+    if (Math.abs(ball.vx) < fadeThreshold && Math.abs(ball.vy) < fadeThreshold) {
+      ball.fadeTimer += 1/60;
+      ball.alpha = Math.max(0, 1 - ball.fadeTimer / fadeDuration);
       if (ball.alpha === 0) balls.splice(i, 1);
     } else {
       ball.fadeTimer = 0;
@@ -291,5 +297,7 @@ function loop() {
   draw();
   requestAnimationFrame(loop);
 }
+
+loop();
 
 loop();
